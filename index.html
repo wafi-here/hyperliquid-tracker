@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HyperTrack Pro // Hyperliquid Top 50 & Copy Trading Intel Terminal</title>
+  <meta name="description"
+    content="Real-time Hyperliquid Top 50 Leaderboard tracker, Noise-filtered live trade monitor with SL/TP alerts, consensus clustering, asset preference analytics, and copy trading intelligence.">
+
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- Background Glow & Grid Overlay -->
+  <div class="bg-grid"></div>
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <header class="header">
+    <div class="header-left">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2L2 9L14 16L26 9L14 2Z" fill="url(#brand-grad1)" />
+            <path d="M2 19L14 26L26 19" stroke="url(#brand-grad2)" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M2 14L14 21L26 14" stroke="url(#brand-grad1)" stroke-width="2.5" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="brand-grad1" x1="2" y1="2" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00F5A0" />
+                <stop stop-color="#00D9F5" />
+              </linearGradient>
+              <linearGradient id="brand-grad2" x1="2" y1="14" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00D9F5" />
+                <stop stop-color="#7B2CBF" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">HYPERTRACK <span class="badge-pro">PRO INTEL</span></div>
+          <div class="brand-subtitle">HYPERLIQUID L1 TOP 50 LEADERBOARD & COPY TRADE TERMINAL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Connection & Control Toolbar -->
+    <div class="header-right">
+      <div class="connection-status" id="ws-status">
+        <span class="status-dot pulsing"></span>
+        <span class="status-label" id="ws-status-text">CONNECTING TO L1 (5 SOCKETS)...</span>
+        <span class="status-ping" id="ws-ping">-- ms</span>
+      </div>
+
+      <div class="audio-controls">
+        <button id="btn-sound-toggle" class="btn-control active" title="Toggle Trade Audio Alert">
+          <span class="icon">🔔</span>
+          <span class="label">Sound ON</span>
+        </button>
+        <button id="btn-test-sound" class="btn-control" title="Test Audio Alert">
+          <span class="icon">🔊</span>
+          <span class="label">Test Chime</span>
+        </button>
+        <button id="btn-notify-perm" class="btn-control" title="Enable Desktop Browser Notifications">
+          <span class="icon">💻</span>
+          <span class="label" id="btn-notify-label">Desktop Alerts</span>
+        </button>
+      </div>
+
+      <button id="btn-refresh-all" class="btn-refresh" title="Force Refresh Data">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+        </svg>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Market Intelligence Top Stats -->
+  <section class="intel-strip">
+    <div class="intel-card">
+      <div class="intel-label">TOP 50 ACCUMULATED CAPITAL</div>
+      <div class="intel-val" id="intel-total-equity">$0.00</div>
+      <div class="intel-sub" id="intel-total-traders">Monitoring Top 50 Traders across 5 Sockets</div>
+    </div>
+    <div class="intel-card">
+      <div class="intel-label">COMBINED 24H PNL</div>
+      <div class="intel-val text-green" id="intel-total-pnl">+$0.00</div>
+      <div class="intel-sub text-muted" id="intel-total-vlm">24h Vol: $0.00</div>
+    </div>
+    <div class="intel-card">
+      <div class="intel-label">SMART MONEY BIAS (ACTIVE POSITIONS)</div>
+      <div class="sentiment-bar-wrapper">
+        <div class="sentiment-bar-labels">
+          <span class="text-green" id="bias-long-pct">50% Long</span>
+          <span class="text-red" id="bias-short-pct">50% Short</span>
+        </div>
+        <div class="sentiment-bar">
+          <div class="sentiment-fill-long" id="sentiment-long-bar" style="width: 50%;"></div>
+          <div class="sentiment-fill-short" id="sentiment-short-bar" style="width: 50%;"></div>
+        </div>
+      </div>
+      <div class="intel-sub" id="bias-status">Scanning Net Position Value...</div>
+    </div>
+    <div class="intel-card">
+      <div class="intel-label">NOISE FILTER STATUS</div>
+      <div class="intel-val text-green" id="intel-filter-status">FILTER: ACTIVE</div>
+      <div class="intel-sub" id="intel-filter-stats">0 Passed • 0 Noise Filtered</div>
+    </div>
+  </section>
+
+  <!-- Main Navigation Tabs -->
+  <nav class="nav-tabs" role="tablist">
+    <button class="nav-tab active" data-tab="tab-leaderboard" id="btn-tab-leaderboard">
+      <span class="tab-icon">🏆</span>
+      <span class="tab-title">Top 50 Leaderboard</span>
+      <span class="tab-badge" id="badge-top-count">50</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-livefeed" id="btn-tab-livefeed">
+      <span class="tab-icon">⚡</span>
+      <span class="tab-title">Live Trade Stream & Alerts</span>
+      <span class="tab-badge pulse-badge" id="badge-live-count">LIVE</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-analytics" id="btn-tab-analytics">
+      <span class="tab-icon">📊</span>
+      <span class="tab-title">Consensus Radar & Asset Matrix</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-copytrade" id="btn-tab-copytrade">
+      <span class="tab-icon">🤖</span>
+      <span class="tab-title">Copy Trade Command & Calculator</span>
+    </button>
+  </nav>
+
+  <!-- Main Workspace Content -->
+  <main class="main-content">
+
+    <!-- ==================== TAB 1: TOP 50 LEADERBOARD ==================== -->
+    <section id="tab-leaderboard" class="tab-pane active">
+      <div class="pane-header">
+        <div class="pane-header-left">
+          <h2>HYPERLIQUID TOP 50 ELITE TRADERS</h2>
+          <p>Real-time on-chain leaderboard from Hyperliquid L1 with reshuffle detection. Click any trader to inspect active positions and trade history.</p>
+        </div>
+        <div class="pane-header-right">
+          <div class="timeframe-selector">
+            <span class="selector-label">Sort By:</span>
+            <button class="btn-tf active" data-sort="day">Day PnL</button>
+            <button class="btn-tf" data-sort="week">Week PnL</button>
+            <button class="btn-tf" data-sort="month">Month PnL</button>
+            <button class="btn-tf" data-sort="allTime">All-Time PnL</button>
+            <button class="btn-tf" data-sort="accountValue">Account Size</button>
+          </div>
+          <button id="btn-track-all" class="btn-action">
+            <span class="icon">📡</span> Track All 50 in Stream
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="leaderboard-table">
+          <thead>
+            <tr>
+              <th width="60">Rank</th>
+              <th>Trader / Address</th>
+              <th class="text-right">Account Value</th>
+              <th class="text-right">Selected PnL</th>
+              <th class="text-right">ROI %</th>
+              <th class="text-right">Trading Volume</th>
+              <th class="text-center">Active Pos.</th>
+              <th class="text-center">Live Track</th>
+              <th class="text-center" width="130">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body">
+            <tr>
+              <td colspan="9" class="loading-state">
+                <div class="spinner"></div>
+                <span>Fetching Hyperliquid L1 Top 50 Leaderboard...</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: LIVE FEED & ALERTS WITH NOISE FILTER ==================== -->
+    <section id="tab-livefeed" class="tab-pane">
+      <div class="pane-header">
+        <div class="pane-header-left">
+          <h2>REAL-TIME TRADE EXECUTION STREAM (TOP 50)</h2>
+          <p>Direct WebSocket feed monitoring every order execution, position open/close, and SL/TP trigger on Hyperliquid.</p>
+        </div>
+        <div class="pane-header-right">
+          <div class="filter-group">
+            <select id="filter-feed-asset" class="input-select">
+              <option value="ALL">All Assets</option>
+              <option value="BTC">BTC Only</option>
+              <option value="ETH">ETH Only</option>
+              <option value="SOL">SOL Only</option>
+              <option value="HYPE">HYPE Only</option>
+            </select>
+            <select id="filter-feed-size" class="input-select">
+              <option value="0">All Sizes</option>
+              <option value="1000">&gt; $1,000 USD</option>
+              <option value="10000">&gt; $10,000 USD</option>
+              <option value="50000">&gt; $50,000 USD</option>
+              <option value="100000">&gt; $100,000 USD (Whales)</option>
+            </select>
+          </div>
+          <button id="btn-clear-feed" class="btn-secondary">Clear Feed</button>
+          <button id="btn-export-csv" class="btn-secondary">Export JSON</button>
+        </div>
+      </div>
+
+      <!-- NOISE FILTER COMMAND BAR (DEFAULT ACTIVE) -->
+      <div class="noise-filter-banner" id="noise-filter-banner">
+        <div class="noise-filter-left">
+          <button id="btn-toggle-noise-filter" class="btn-noise-toggle active" title="Toggle Noise Filter ON/OFF">
+            <span class="noise-switch-icon">🛡️</span>
+            <span class="noise-switch-text" id="noise-switch-label">Noise Filter: ON (Default)</span>
+          </button>
+          <div class="noise-rule-summary">
+            <span class="noise-pill-active">OR LOGIC ACTIVE</span>
+            <span class="noise-rule-text" id="noise-rule-text">
+              1) 🏛️ Macro: ≥27 traders (60-120m) &nbsp;|&nbsp; 
+              2) ⚡ Flash: ≥8 traders (15-30m) &nbsp;|&nbsp; 
+              3) 🐋 Conviction: ≥$50K &gt;5% Equity (Anti-Scalp & Anti-Hedge)
+            </span>
+          </div>
+        </div>
+        <div class="noise-filter-right">
+          <span class="filter-tally" id="filter-tally">0 Passed / 0 Noise Filtered</span>
+          <button id="btn-open-noise-settings" class="btn-control" title="Configure Noise Filter Parameters">
+            <span class="icon">⚙️</span> Filter Settings
+          </button>
+        </div>
+      </div>
+
+      <div class="live-feed-layout">
+        <div class="feed-stream-panel">
+          <div class="stream-control-bar">
+            <div class="stream-stats">
+              <span id="stream-rate">0 trades/min</span> •
+              <span id="active-tracked-traders">Tracking 50 traders (5 Sockets)</span>
+            </div>
+            <div class="stream-options">
+              <label class="view-filtered-only-label">
+                <input type="checkbox" id="chk-show-noise" title="Show trades that were filtered out"> Show Filtered Noise
+              </label>
+              <label class="auto-scroll-label">
+                <input type="checkbox" id="chk-autoscroll" checked> Auto-Scroll
+              </label>
+            </div>
+          </div>
+          <div class="feed-cards-container" id="feed-cards-container">
+            <div class="empty-feed">
+              <div class="radar-scan"></div>
+              <p>Listening to Hyperliquid Mainnet 5x WebSockets (<code>wss://api.hyperliquid.xyz/ws</code>)...</p>
+              <span class="subtext">Trades fulfilling the <strong>Noise Filter</strong> criteria will trigger audio alerts and stream here in real time.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Orders / Pending Triggers (SL/TP) sidebar -->
+        <div class="feed-sidebar">
+          <div class="sidebar-box">
+            <div class="sidebar-header">
+              <h3>🎯 PENDING ORDERS & TRIGGERS (SL/TP)</h3>
+              <button id="btn-refresh-orders" class="btn-icon" title="Refresh Orders">🔄</button>
+            </div>
+            <div class="sidebar-content" id="sidebar-orders-list">
+              <div class="loading-state mini">
+                <div class="spinner"></div>
+                <span>Scanning active limit & trigger orders...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-box">
+            <div class="sidebar-header">
+              <h3>⚡ QUICK COPY SIMULATOR</h3>
+            </div>
+            <div class="sidebar-content">
+              <div class="sim-status">
+                <div class="sim-row">
+                  <span>Paper Balance:</span>
+                  <strong class="text-green" id="sim-balance">$10,000.00 USDC</strong>
+                </div>
+                <div class="sim-row">
+                  <span>Simulated Profit:</span>
+                  <strong id="sim-pnl">+$0.00 (0.00%)</strong>
+                </div>
+                <div class="sim-row">
+                  <span>Replicated Trades:</span>
+                  <span id="sim-trades-count">0</span>
+                </div>
+              </div>
+              <div class="sim-toggle-row">
+                <label class="switch">
+                  <input type="checkbox" id="chk-auto-simulate">
+                  <span class="slider round"></span>
+                </label>
+                <span>Auto-Replicate Top 1 Trader</span>
+              </div>
+              <button id="btn-reset-sim" class="btn-outline full-width">Reset Simulator</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: ASSET TENDENCY & CONSENSUS CLUSTERS ==================== -->
+    <section id="tab-analytics" class="tab-pane">
+      <div class="pane-header">
+        <div class="pane-header-left">
+          <h2>SMART MONEY CONSENSUS RADAR & ASSET TENDENCY</h2>
+          <p>Real-time cluster tracking across Top 50 traders: Flash Momentum (≥8 traders in 15-30m) & Macro Consensus (≥27 traders in 60-120m).</p>
+        </div>
+        <div class="pane-header-right">
+          <button id="btn-recompute-analytics" class="btn-action">
+            <span class="icon">⚡</span> Recompute Asset Matrix
+          </button>
+        </div>
+      </div>
+
+      <!-- CONSENSUS CLUSTERING RADAR (NEW SECTION FOR REQUIREMENT) -->
+      <div class="consensus-radar-section">
+        <div class="consensus-radar-header">
+          <div class="radar-title-group">
+            <span class="radar-icon">📡</span>
+            <div>
+              <h3>SMART MONEY CONSENSUS CLUSTER RADAR</h3>
+              <p>Monitors rolling clusters of Top 50 traders taking identical positions on the same coin.</p>
+            </div>
+          </div>
+          <div class="radar-badges">
+            <span class="badge-consensus-info">⚡ FLASH: ≥8 TRADERS (15–30M)</span>
+            <span class="badge-consensus-info">🏛️ MACRO: ≥27 TRADERS (60–120M)</span>
+          </div>
+        </div>
+        <div class="consensus-cards-grid" id="consensus-cards-container">
+          <div class="loading-state mini"><div class="spinner"></div><span>Scanning consensus clusters across Top 50 traders...</span></div>
+        </div>
+      </div>
+
+      <div class="analytics-grid" style="margin-top: 24px;">
+        <!-- Asset Volume & Trade Share -->
+        <div class="card-analytics">
+          <div class="card-title">
+            <span>🔥 MOST TRADED ASSETS (BY TRADE COUNT & VOLUME)</span>
+          </div>
+          <div class="card-body" id="asset-volume-breakdown">
+            <div class="loading-state mini">
+              <div class="spinner"></div><span>Calculating trade distributions...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Directional Bias (Long vs Short) Per Asset -->
+        <div class="card-analytics">
+          <div class="card-title">
+            <span>⚖️ DIRECTIONAL BIAS (LONG VS SHORT SENTIMENT)</span>
+          </div>
+          <div class="card-body" id="asset-bias-breakdown">
+            <div class="loading-state mini">
+              <div class="spinner"></div><span>Analyzing position direction...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- High Conviction Trade Ledger (>5% Equity) -->
+        <div class="card-analytics full-width">
+          <div class="card-title">
+            <span>🐋 HIGH CONVICTION TRADE LEDGER (&gt;5% ACCOUNT EQUITY &amp; &gt;$50K)</span>
+            <span class="card-subtitle">Trades where top traders staked significant portfolio weight</span>
+          </div>
+          <div class="card-body" id="conviction-trades-ledger">
+            <div class="loading-state mini"><div class="spinner"></div><span>Scanning high conviction executions...</span></div>
+          </div>
+        </div>
+
+        <!-- Open Positions Exposure Heatmap -->
+        <div class="card-analytics full-width">
+          <div class="card-title">
+            <span>🌐 AGGREGATED LIVE POSITIONS ACROSS ALL TOP 50 TRADERS</span>
+            <span class="card-subtitle">Real-time open contracts held by the leaderboard</span>
+          </div>
+          <div class="card-body" id="open-positions-matrix">
+            <div class="loading-state mini">
+              <div class="spinner"></div><span>Inspecting clearinghouse states...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trader Style Profile (Scalp vs Swing vs Delta-Neutral) -->
+        <div class="card-analytics full-width">
+          <div class="card-title">
+            <span>🧠 TOP TRADER EXECUTION STYLES &amp; HEDGING DETECTION</span>
+          </div>
+          <div class="card-body" id="trader-style-matrix">
+            <div class="loading-state mini">
+              <div class="spinner"></div><span>Generating trader profiles...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: COPY TRADE COMMAND CENTER ==================== -->
+    <section id="tab-copytrade" class="tab-pane">
+      <div class="pane-header">
+        <div class="pane-header-left">
+          <h2>COPY TRADING COMMAND & INTELLIGENCE CENTER</h2>
+          <p>Sizing calculator, risk controls, and automated Hyperliquid execution guide using Agent Wallets and Vaults.</p>
+        </div>
+        <div class="pane-header-right">
+          <div class="guide-badge">🔒 Non-Custodial Agent Wallet Architecture</div>
+        </div>
+      </div>
+
+      <div class="copytrade-grid">
+        <!-- Left Column: Sizing & Risk Calculator -->
+        <div class="card-copytrade">
+          <div class="card-title">
+            <span>🧮 PROPORTIONAL POSITION SIZING CALCULATOR</span>
+          </div>
+          <div class="calculator-form">
+            <div class="form-group">
+              <label>Select Target Leader Trader to Copy (Top 50):</label>
+              <select id="calc-leader-select" class="input-field">
+                <option value="">Loading Top 50 Traders...</option>
+              </select>
+            </div>
+
+            <div class="calc-metrics-row" id="calc-leader-preview">
+              <div class="preview-item">
+                <span class="lbl">Leader Equity:</span>
+                <span class="val" id="prev-leader-equity">$0.00</span>
+              </div>
+              <div class="preview-item">
+                <span class="lbl">Leader 30d PnL:</span>
+                <span class="val text-green" id="prev-leader-pnl">$0.00</span>
+              </div>
+              <div class="preview-item">
+                <span class="lbl">Open Positions:</span>
+                <span class="val" id="prev-leader-pos">0 active</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-half">
+                <label>Your Account Balance (USDC):</label>
+                <div class="input-with-symbol">
+                  <span class="sym">$</span>
+                  <input type="number" id="calc-copier-balance" class="input-field" value="2000" min="10" step="10">
+                </div>
+              </div>
+              <div class="form-group col-half">
+                <label>Max Leverage Cap:</label>
+                <select id="calc-max-leverage" class="input-field">
+                  <option value="1">1x (Conservative / Spot)</option>
+                  <option value="2">2x (Prudent)</option>
+                  <option value="3" selected>3x (Balanced)</option>
+                  <option value="5">5x (Aggressive)</option>
+                  <option value="10">10x (High Risk)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-half">
+                <label>Max Allocation Per Coin (%):</label>
+                <input type="number" id="calc-max-alloc" class="input-field" value="25" min="5" max="100">
+              </div>
+              <div class="form-group col-half">
+                <label>Max Slippage Tolerance (%):</label>
+                <input type="number" id="calc-max-slippage" class="input-field" value="0.2" min="0.05" step="0.05">
+              </div>
+            </div>
+
+            <div class="calc-results-card">
+              <h4>REPLICATION EXAMPLE PREVIEW</h4>
+              <p class="calc-example-text" id="calc-example-desc">
+                If Leader opens a <strong>$1,000,000</strong> position in BTC (approx 1.6% of their account):
+              </p>
+              <div class="results-stats">
+                <div class="res-item">
+                  <span class="res-lbl">Your Copied Size:</span>
+                  <span class="res-val text-green" id="res-copy-size">$32.00 USD</span>
+                </div>
+                <div class="res-item">
+                  <span class="res-lbl">Effective Margin:</span>
+                  <span class="res-val" id="res-copy-margin">$10.67 (at 3x)</span>
+                </div>
+                <div class="res-item">
+                  <span class="res-lbl">Portfolio Weight:</span>
+                  <span class="res-val" id="res-copy-weight">1.60%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Implementation Architecture & Agent Wallet Setup -->
+        <div class="card-copytrade">
+          <div class="card-title">
+            <span>🛡️ HYPERLIQUID EXECUTION METHODS & HOW TO DEPLOY</span>
+          </div>
+          <div class="copy-methods-content">
+            <div class="method-card">
+              <div class="method-header">
+                <span class="method-pill method-easy">METHOD 1: NATIVE VAULTS (0 CODE)</span>
+                <span class="method-tag">Recommended for Beginners</span>
+              </div>
+              <p>Hyperliquid features on-chain <strong>Vaults</strong> where top traders act as Vault Leaders. You
+                simply deposit USDC directly into their vault, and all trades are replicated natively on L1 without
+                running servers.</p>
+              <div class="vault-links" id="vault-recommendations">
+                <span>Checking if top traders run public vaults...</span>
+              </div>
+            </div>
+
+            <div class="method-card">
+              <div class="method-header">
+                <span class="method-pill method-pro">METHOD 2: AGENT WALLET API BOT (CUSTOM EXECUTION)</span>
+                <span class="method-tag">Full Control & Pro Customization</span>
+              </div>
+              <p>For custom rules (custom leverage, asset whitelists, stop losses), use an <strong>Agent Wallet Private
+                  Key</strong>:</p>
+              <ol class="steps-list">
+                <li>Go to <a href="https://app.hyperliquid.xyz/API" target="_blank" rel="noopener">Hyperliquid API
+                    Tab</a> and click <strong>"Create Agent Wallet"</strong>.</li>
+                <li>Approve the Agent with your Master account (Agent can trade on your behalf, but <strong>CANNOT
+                    withdraw funds</strong>).</li>
+                <li>Run our companion Python script <code>copy_bot.py</code> in the background to automatically listen
+                  and replicate trades on L1 with Noise Filtering!</li>
+              </ol>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span>copy_bot.py (Included in your app folder)</span>
+                  <button class="btn-copy-code" id="btn-copy-script-path">Copy Path</button>
+                </div>
+                <pre class="code-box"><code>python3 copy_bot.py --leader 0x85ec... --account 0xMyMaster... --balance 2000 --noise-filter</code></pre>
+              </div>
+            </div>
+
+            <!-- Risk Warning Notice -->
+            <div class="risk-notice">
+              <div class="risk-icon">⚠️</div>
+              <div class="risk-text">
+                <strong>CRITICAL COPY TRADING RULES:</strong> Top traders often hold positions through deep drawdowns
+                with tens of millions in liquidity. Never use high leverage (>3x-5x) to copy them, or you will be
+                liquidated while they remain solvent! Always enforce max position limits.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== NOISE FILTER CONFIGURATION MODAL ==================== -->
+  <div id="noise-settings-modal" class="modal-backdrop">
+    <div class="modal-window" style="max-width: 650px;">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <div class="modal-rank-badge" style="background:var(--neon-green); color:#07090E;">🛡️</div>
+          <div>
+            <h3>NOISE FILTER CONFIGURATION (OR LOGIC)</h3>
+            <div class="modal-subtext">Settings are automatically persisted in your local storage.</div>
+          </div>
+        </div>
+        <button id="noise-modal-close" class="btn-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">
+          The Noise Filter uses <strong>OR Logic</strong> across 3 criteria: a trade triggers a notification and streams in the live feed if <em>any</em> of the following conditions are met:
+        </p>
+
+        <!-- Rule 1: Macro Consensus Clustering -->
+        <div class="settings-group-box">
+          <div class="settings-box-title">
+            <span class="rule-num">RULE 1</span>
+            <strong>🏛️ Macro Consensus Clustering (Top 50)</strong>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label>Min Traders in Consensus:</label>
+              <input type="number" id="setting-macro-traders" class="input-field" value="27" min="2" max="50">
+            </div>
+            <div class="form-group col-half">
+              <label>Time Window (Minutes):</label>
+              <input type="number" id="setting-macro-window" class="input-field" value="120" min="15" max="360">
+            </div>
+          </div>
+          <div class="setting-desc">Triggers when ≥27 traders open the same asset and direction within 60–120 minutes.</div>
+        </div>
+
+        <!-- Rule 2: Flash Momentum Clustering -->
+        <div class="settings-group-box">
+          <div class="settings-box-title">
+            <span class="rule-num">RULE 2</span>
+            <strong>⚡ Flash Momentum Clustering (Top 50)</strong>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label>Min Traders in Consensus:</label>
+              <input type="number" id="setting-flash-traders" class="input-field" value="8" min="2" max="50">
+            </div>
+            <div class="form-group col-half">
+              <label>Time Window (Minutes):</label>
+              <input type="number" id="setting-flash-window" class="input-field" value="30" min="5" max="60">
+            </div>
+          </div>
+          <div class="setting-desc">Triggers when ≥8 traders open the same asset and direction within 15–30 minutes.</div>
+        </div>
+
+        <!-- Rule 3: High Conviction & Anti-Scalp -->
+        <div class="settings-group-box">
+          <div class="settings-box-title">
+            <span class="rule-num">RULE 3</span>
+            <strong>🐋 High Conviction Execution & Anti-Scalp</strong>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label>Min Notional Trade Size ($):</label>
+              <input type="number" id="setting-min-notional" class="input-field" value="50000" min="1000" step="5000">
+            </div>
+            <div class="form-group col-half">
+              <label>Min Trader Equity Weight (%):</label>
+              <input type="number" id="setting-min-equity-pct" class="input-field" value="5.0" min="0.5" max="50" step="0.5">
+            </div>
+          </div>
+          <div class="form-row" style="margin-top: 8px;">
+            <div class="form-group col-half">
+              <label>Exclude Ultra-Short Scalps (&lt; min):</label>
+              <input type="number" id="setting-anti-scalp-min" class="input-field" value="3" min="0" max="30">
+            </div>
+            <div class="form-group col-half">
+              <label>Delta-Neutral Hedging Filter:</label>
+              <select id="setting-exclude-hedge" class="input-field">
+                <option value="true" selected>Exclude Delta-Neutral Hedges</option>
+                <option value="false">Allow All Trades</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-desc">Eliminates bait/dust trades, requires ≥5% account equity commitment, and ignores micro-scalpers & basis hedgers.</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 20px; align-items: center;">
+          <button id="btn-reset-noise-settings" class="btn-secondary">Reset to Defaults</button>
+          <button id="btn-save-noise-settings" class="btn-action">Save & Apply Filter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TRADER DETAIL MODAL ==================== -->
+  <div id="trader-modal" class="modal-backdrop">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <div class="modal-rank-badge" id="modal-rank">#1</div>
+          <div>
+            <h3 id="modal-address">0x0000000000000000000000000000000000000000</h3>
+            <div class="modal-subtext" id="modal-display-name">Hyperliquid Top Trader</div>
+          </div>
+        </div>
+        <div class="modal-header-actions">
+          <a id="modal-hl-link" href="#" target="_blank" rel="noopener" class="btn-external">
+            Open on Hyperliquid ↗
+          </a>
+          <button id="modal-close" class="btn-close">&times;</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <!-- Trader Performance Overview -->
+        <div class="modal-stats-strip">
+          <div class="mstat">
+            <span class="lbl">Account Equity</span>
+            <span class="val" id="mstat-equity">$0.00</span>
+          </div>
+          <div class="mstat">
+            <span class="lbl">All-Time PnL</span>
+            <span class="val text-green" id="mstat-alltime-pnl">+$0.00</span>
+          </div>
+          <div class="mstat">
+            <span class="lbl">Month PnL</span>
+            <span class="val" id="mstat-month-pnl">$0.00</span>
+          </div>
+          <div class="mstat">
+            <span class="lbl">Day PnL</span>
+            <span class="val" id="mstat-day-pnl">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Tabs inside modal: Active Positions vs Recent Fills vs Orders -->
+        <div class="modal-nav">
+          <button class="modal-tab active" data-modaltab="modal-tab-positions">Active Positions (<span
+              id="mcount-positions">0</span>)</button>
+          <button class="modal-tab" data-modaltab="modal-tab-orders">Open Orders & Triggers (<span
+              id="mcount-orders">0</span>)</button>
+          <button class="modal-tab" data-modaltab="modal-tab-fills">Recent Fills History (<span
+              id="mcount-fills">0</span>)</button>
+        </div>
+
+        <div class="modal-tab-content">
+          <div id="modal-tab-positions" class="modal-pane active">
+            <div class="table-container mini">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Coin</th>
+                    <th>Side</th>
+                    <th class="text-right">Size</th>
+                    <th class="text-right">Entry Price</th>
+                    <th class="text-right">Unrealized PnL</th>
+                    <th class="text-right">ROE %</th>
+                    <th class="text-right">Leverage</th>
+                    <th class="text-right">Liquidation</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-positions-body">
+                  <tr>
+                    <td colspan="8" class="text-center">No active positions.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="modal-tab-orders" class="modal-pane">
+            <div class="table-container mini">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Coin</th>
+                    <th>Type</th>
+                    <th>Side</th>
+                    <th class="text-right">Limit Price</th>
+                    <th class="text-right">Trigger Condition (SL/TP)</th>
+                    <th class="text-right">Size</th>
+                    <th class="text-center">Reduce Only</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-orders-body">
+                  <tr>
+                    <td colspan="7" class="text-center">No open orders.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="modal-tab-fills" class="modal-pane">
+            <div class="table-container mini">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Coin</th>
+                    <th>Action</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Size</th>
+                    <th class="text-right">Realized PnL</th>
+                    <th class="text-center">Tx Hash</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-fills-body">
+                  <tr>
+                    <td colspan="7" class="text-center">Loading fills...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
